@@ -68,27 +68,32 @@ namespace FileUpload.Controllers
                     }
 
                     await content.ReadAsMultipartAsync(provider);
-                    string uploadingFileName = provider.FileData.Select(x => x.LocalFileName).FirstOrDefault();
                     foreach (MultipartFileData i in provider.FileData)
                     {
                         logger.Info(i.LocalFileName);
                     }
                     logger.Info("Debugging.....");
-                    foreach (HttpContent i in provider.Contents)
+                    string originalFileName="";
+                    string uploadingFileName = "";
+                    if (provider.Contents.Count == 0)
                     {
-                        logger.Info(i.Headers.ContentDisposition.FileName);
+                        logger.Info("Provide Atleast Onefile.");
+                        HttpResponseMessage response = Request.CreateResponse(HttpStatusCode.BadRequest, "Provide Atleast Onefile.");
+                        throw new HttpResponseException(response);
                     }
-                    string originalFileName = Path.Combine(fileuploadPath, (provider.Contents[0].Headers.ContentDisposition.FileName).Trim(new Char[] { '"' }));
-                    logger.Info(originalFileName);
-                    //string originalFileName = String.Concat(fileuploadPath, "\\" + (provider.Contents[0].Headers.ContentDisposition.FileName).Trim(new Char[] { '"' }));
-                    logger.Info("Uploading File Name: " + uploadingFileName);
-                    logger.Info("Original File Name: " + originalFileName);
-                    if (File.Exists(originalFileName))
+                    int ind = 0;
+                    foreach (HttpContent content1 in provider.Contents)
                     {
-                        File.Delete(originalFileName);
-                    }
+                        logger.Info(content1.Headers.ContentDisposition.FileName);
+                        uploadingFileName = provider.FileData.Select(x => x.LocalFileName).ElementAt(ind++);
+                        originalFileName = Path.Combine(fileuploadPath, (content1.Headers.ContentDisposition.FileName).Trim(new Char[] { '"' }));
+                        logger.Info(originalFileName);
+                        //string originalFileName = String.Concat(fileuploadPath, "\\" + (provider.Contents[0].Headers.ContentDisposition.FileName).Trim(new Char[] { '"' }));
+                        logger.Info("Uploading File Name: " + uploadingFileName);
+                        logger.Info("Original File Name: " + originalFileName);
 
-                    File.Move(uploadingFileName, originalFileName);
+                        File.Move(uploadingFileName, originalFileName);
+                    }
 
                     //foreach (var singleFile in FileUpload1.PostedFiles)
                     //{
@@ -122,6 +127,10 @@ namespace FileUpload.Controllers
                     {
                         logger.Info(e);
                     }
+                    //return provider.FileData
+                    //    .Select(file => new FileInfo(file.LocalFileName))
+                    //    .Select(fi => "File uploaded as " + fi.FullName + " (" + fi.Length + " bytes)")
+                    //    .ToList();
                     return new List<string>() { "Success!!!" };
                 }
                 catch (Exception e)
