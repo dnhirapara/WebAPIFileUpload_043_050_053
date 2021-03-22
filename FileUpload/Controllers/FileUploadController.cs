@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Mail;
 using System.Threading.Tasks;
 using System.Web;
 using System.Web.Http;
@@ -13,10 +14,17 @@ using NLog;
 
 namespace FileUpload.Controllers
 {
+    public class ResFileInfo
+    {
+        public string FileName { get; set; }
+        public string Extension { get; set; }
+        public long Length { get; set; }
+    }
     public class FileUploadController : ApiController
     {
         private static Logger logger;
         private const string connectionString = @"Data Source=(localdb)\MSSQLLocalDB;Initial Catalog=FileShareingSystemDB;Integrated Security=True;Connect Timeout=30;Encrypt=False;TrustServerCertificate=False;ApplicationIntent=ReadWrite;MultiSubnetFailover=False";
+        private const string prefixURL = "https://localhost:44319";
         SqlConnection sqlConnection;
 
         public FileUploadController()
@@ -28,17 +36,47 @@ namespace FileUpload.Controllers
         {
             sqlConnection.Close();
         }
-
+        private bool sendMail(string subject, string body, string emailTo)
+        {
+            string FromMail = "noreply.saloncheckin@gmail.com";
+            MailMessage mail = new MailMessage();
+            SmtpClient SmtpServer = new SmtpClient("smtp.gmail.com");
+            mail.From = new MailAddress(FromMail);
+            mail.To.Add("darshikhirapara@gmail.com");
+            mail.To.Add(emailTo);
+            mail.Subject = subject;
+            mail.Body = body;
+            SmtpServer.Port = 587;
+            SmtpServer.Credentials = new System.Net.NetworkCredential("noreply.saloncheckin@gmail.com", "Saloncheckin@sdp");
+            SmtpServer.EnableSsl = true;
+            SmtpServer.Send(mail);
+            return true;
+        }
         private void StoreDB()
         {
 
         }
-
-        public Task<string> GetFileUrl(int id)
+        [HttpGet]
+        public List<ResFileInfo> GetFileUrl(string key)
         {
-            return Task.FromResult("Hello User Id: " + id);
+            string folder = ConfigurationManager.AppSettings["FileUploadLocation"] + key + "\\";
+            var path = System.Web.HttpContext.Current.Server.MapPath(folder);
+            string dir = Path.GetDirectoryName(path);
+            List<string> fileList = Directory.GetFiles(path).ToList();
+            List<ResFileInfo> resFileInfos = new List<ResFileInfo>();
+            fileList.ForEach(file => {
+                logger.Debug(file);
+                FileInfo fileInfo = new FileInfo(file);
+                ResFileInfo resFileInfo = new ResFileInfo(){
+                    FileName = fileInfo.Name,
+                    Extension = fileInfo.Extension,
+                    Length = fileInfo.Length
+                };
+                resFileInfos.Add(resFileInfo);
+            });
+            return resFileInfos;
         }
-
+        [HttpPost]
         public async Task<List<string>> Upload()
         {
             if (Request.Content.IsMimeMultipartContent("form-data"))
@@ -131,7 +169,11 @@ namespace FileUpload.Controllers
                     //    .Select(file => new FileInfo(file.LocalFileName))
                     //    .Select(fi => "File uploaded as " + fi.FullName + " (" + fi.Length + " bytes)")
                     //    .ToList();
-                    return new List<string>() { "Success!!!" };
+                    string body = $"Please goto these link to download your files. {prefixURL + "/api/FileUpload/?key=" + commonid}";
+
+                    sendMail("File Uploaded Successfully.",body, "yashgarala29@gmail.com");
+                    //"yashgarala29@gmail.com"
+                    return new List<string>() { prefixURL+ "/api/FileUpload/?key=" + commonid };
                 }
                 catch (Exception e)
                 {
