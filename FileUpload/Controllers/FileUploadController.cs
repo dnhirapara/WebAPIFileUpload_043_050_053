@@ -47,7 +47,7 @@ namespace FileUpload.Controllers
             mail.Subject = subject;
             mail.Body = body;
             SmtpServer.Port = 587;
-            SmtpServer.Credentials = new System.Net.NetworkCredential("noreply.saloncheckin@gmail.com", "Saloncheckin@sdp");
+            SmtpServer.Credentials = new System.Net.NetworkCredential("noreply.saloncheckin@gmail.com", "admin");
             SmtpServer.EnableSsl = true;
             SmtpServer.Send(mail);
             return true;
