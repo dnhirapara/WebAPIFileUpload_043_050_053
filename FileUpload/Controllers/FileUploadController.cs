@@ -10,6 +10,7 @@ using System.Net.Mail;
 using System.Threading.Tasks;
 using System.Web;
 using System.Web.Http;
+using System.Web.Http.Cors;
 using NLog;
 
 namespace FileUpload.Controllers
@@ -20,6 +21,7 @@ namespace FileUpload.Controllers
         public string Extension { get; set; }
         public long Length { get; set; }
     }
+    [EnableCors(origins: "*", headers: "*", methods: "*")]
     public class FileUploadController : ApiController
     {
         private static Logger logger;
@@ -47,29 +49,44 @@ namespace FileUpload.Controllers
             mail.Subject = subject;
             mail.Body = body;
             SmtpServer.Port = 587;
-            SmtpServer.Credentials = new System.Net.NetworkCredential("noreply.saloncheckin@gmail.com", "admin");
+            SmtpServer.Credentials = new System.Net.NetworkCredential("noreply.saloncheckin@gmail.com", "Saloncheckin@sdp");
             SmtpServer.EnableSsl = true;
             SmtpServer.Send(mail);
             return true;
         }
-        private void StoreDB(string file_name, string commonid, string email ="darshikhirapara@gmail.com")
+        private void StoreDB(string file_name, string commonid, string _email ="darshikhirapara@gmail.com")
         {
-            SqlConnection sqlConnection = new SqlConnection(connectionString);
-            SqlCommand cmd = new SqlCommand();
-            cmd.Connection = sqlConnection;
-            cmd.CommandText = "INSERT INTO FileDetail (UplodeDate,FileName,UserId,ComonID)VALUES(@UplodeDate,@FileName,@UserId,@ComonID) ";
-            SqlParameter UplodeDate = new SqlParameter("@UplodeDate", DateTime.Now);
-            SqlParameter FileName = new SqlParameter("@FileName", file_name.ToString());
-            SqlParameter UserId = new SqlParameter("@UserId", 1);
-            SqlParameter comomid = new SqlParameter("@ComonID", commonid.ToString());
-            cmd.Parameters.Add(UplodeDate);
-            cmd.Parameters.Add(FileName);
-            cmd.Parameters.Add(UserId);
-            cmd.Parameters.Add(comomid);
+            using (SqlConnection sqlConnection = new SqlConnection(connectionString))
+            {
+                sqlConnection.Open();
+                Int32 userid;
+                SqlCommand fileCmd = new SqlCommand();
+                using (SqlCommand userCmd = new SqlCommand())
+                {
+                    userCmd.Connection = sqlConnection;
+                    userCmd.CommandText = "INSERT INTO UserDetail (username,email,password)VALUES(@username,@email,@password)";
+                    userCmd.Parameters.AddWithValue("username", "guest");
+                    userCmd.Parameters.AddWithValue("email", _email);
+                    userCmd.Parameters.AddWithValue("password", "guest");
+                    //SqlParameter username = new SqlParameter("@username", "guest");
+                    //SqlParameter email = new SqlParameter("@email", _email);
+                    //SqlParameter password = new SqlParameter("@password", "guest");
+                    userid = Convert.ToInt32(userCmd.ExecuteScalar());
+                    logger.Info(userid);
+                }
 
-            sqlConnection.Open();
-            cmd.ExecuteNonQuery();
-            sqlConnection.Close();
+                fileCmd.Connection = sqlConnection;
+                fileCmd.CommandText = "INSERT INTO FileDetail (UplodeDate,FileName,UserId,ComonID)VALUES(@UplodeDate,@FileName,@UserId,@ComonID) ";
+                SqlParameter UplodeDate = new SqlParameter("@UplodeDate", DateTime.Now);
+                SqlParameter FileName = new SqlParameter("@FileName", file_name.ToString());
+                SqlParameter UserId = new SqlParameter("@UserId", userid);
+                SqlParameter comomid = new SqlParameter("@ComonID", commonid.ToString());
+                fileCmd.Parameters.Add(UplodeDate);
+                fileCmd.Parameters.Add(FileName);
+                fileCmd.Parameters.Add(UserId);
+                fileCmd.Parameters.Add(comomid);
+                fileCmd.ExecuteNonQuery();
+            }
         }
         [HttpGet]
         public List<ResFileInfo> GetFileUrl(string key)
@@ -99,10 +116,8 @@ namespace FileUpload.Controllers
                 try
                 {
                     string commonid = Guid.NewGuid().ToString("N");
-
                     string folder = ConfigurationManager.AppSettings["FileUploadLocation"] + commonid + "\\";
                     var path = System.Web.HttpContext.Current.Server.MapPath(folder);
-                    logger.Info(ConfigurationManager.AppSettings["FileUploadLocation"]);
                     if (Directory.Exists(path))
                     {
                         logger.Info("Path Already Exists.");
@@ -119,13 +134,11 @@ namespace FileUpload.Controllers
                         logger.Info(header.Key + " " + header.Value);
                         content.Headers.TryAddWithoutValidation(header.Key, header.Value);
                     }
-
                     await content.ReadAsMultipartAsync(provider);
                     foreach (MultipartFileData i in provider.FileData)
                     {
-                        logger.Info(i.LocalFileName);
+                        logger.Error(i.LocalFileName);
                     }
-                    logger.Info("Debugging.....");
                     string originalFileName="";
                     string uploadingFileName = "";
                     if (provider.Contents.Count == 0)
@@ -134,26 +147,14 @@ namespace FileUpload.Controllers
                         HttpResponseMessage response = Request.CreateResponse(HttpStatusCode.BadRequest, "Provide Atleast Onefile.");
                         throw new HttpResponseException(response);
                     }
-                    int ind = 0;
-                    foreach (HttpContent content1 in provider.Contents)
+                    foreach(MultipartFileData file in provider.FileData)
                     {
-                        logger.Info(content1.Headers.ContentDisposition.FileName);
-                        uploadingFileName = provider.FileData.Select(x => x.LocalFileName).ElementAt(ind++);
-                        originalFileName = Path.Combine(fileuploadPath, (content1.Headers.ContentDisposition.FileName).Trim(new Char[] { '"' }));
-                        logger.Info(originalFileName);
-                        //string originalFileName = String.Concat(fileuploadPath, "\\" + (provider.Contents[0].Headers.ContentDisposition.FileName).Trim(new Char[] { '"' }));
-                        logger.Info("Uploading File Name: " + uploadingFileName);
-                        logger.Info("Original File Name: " + originalFileName);
-
+                        uploadingFileName = file.LocalFileName;
+                        originalFileName = Path.Combine(fileuploadPath, (file.Headers.ContentDisposition.FileName).Trim(new Char[] { '"' }));
+                        logger.Debug(uploadingFileName + " " + originalFileName);
                         File.Move(uploadingFileName, originalFileName);
                     }
-
-                    //foreach (var singleFile in FileUpload1.PostedFiles)
-                    //{
-                    //string file_name = commonid + "_" + singleFile.FileName;
                     string file_name = originalFileName;
-                    //singleFile.SaveAs(Server.MapPath(folder + "/") + file_name);
-                    //}
                     try
                     {
                         StoreDB(file_name, commonid);
@@ -162,14 +163,8 @@ namespace FileUpload.Controllers
                     {
                         logger.Info(e);
                     }
-                    //return provider.FileData
-                    //    .Select(file => new FileInfo(file.LocalFileName))
-                    //    .Select(fi => "File uploaded as " + fi.FullName + " (" + fi.Length + " bytes)")
-                    //    .ToList();
                     string body = $"Please goto these link to download your files. {prefixURL + "/api/FileUpload/?key=" + commonid}";
-
                     sendMail("File Uploaded Successfully.",body, "yashgarala29@gmail.com");
-                    //"yashgarala29@gmail.com"
                     return new List<string>() { prefixURL+ "/api/FileUpload/?key=" + commonid };
                 }
                 catch (Exception e)
