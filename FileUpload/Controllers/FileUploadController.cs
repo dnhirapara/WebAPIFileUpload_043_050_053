@@ -52,9 +52,24 @@ namespace FileUpload.Controllers
             SmtpServer.Send(mail);
             return true;
         }
-        private void StoreDB()
+        private void StoreDB(string file_name, string commonid, string email ="darshikhirapara@gmail.com")
         {
+            SqlConnection sqlConnection = new SqlConnection(connectionString);
+            SqlCommand cmd = new SqlCommand();
+            cmd.Connection = sqlConnection;
+            cmd.CommandText = "INSERT INTO FileDetail (UplodeDate,FileName,UserId,ComonID)VALUES(@UplodeDate,@FileName,@UserId,@ComonID) ";
+            SqlParameter UplodeDate = new SqlParameter("@UplodeDate", DateTime.Now);
+            SqlParameter FileName = new SqlParameter("@FileName", file_name.ToString());
+            SqlParameter UserId = new SqlParameter("@UserId", 1);
+            SqlParameter comomid = new SqlParameter("@ComonID", commonid.ToString());
+            cmd.Parameters.Add(UplodeDate);
+            cmd.Parameters.Add(FileName);
+            cmd.Parameters.Add(UserId);
+            cmd.Parameters.Add(comomid);
 
+            sqlConnection.Open();
+            cmd.ExecuteNonQuery();
+            sqlConnection.Close();
         }
         [HttpGet]
         public List<ResFileInfo> GetFileUrl(string key)
@@ -141,25 +156,7 @@ namespace FileUpload.Controllers
                     //}
                     try
                     {
-                        SqlConnection sqlConnection = new SqlConnection(connectionString);
-                        SqlCommand cmd = new SqlCommand();
-                        cmd.Connection = sqlConnection;
-                        cmd.CommandText = "INSERT INTO FileDetail (UplodeDate,FileName,UserId,ComonID)VALUES(@UplodeDate,@FileName,@UserId,@ComonID) ";
-                        SqlParameter UplodeDate = new SqlParameter("@UplodeDate", DateTime.Now);
-                        logger.Info(file_name);
-                        logger.Info(commonid);
-                        logger.Info(file_name.ToString(), commonid.ToString());
-                        SqlParameter FileName = new SqlParameter("@FileName", file_name.ToString());
-                        SqlParameter UserId = new SqlParameter("@UserId", 1);
-                        SqlParameter comomid = new SqlParameter("@ComonID", commonid.ToString());
-                        cmd.Parameters.Add(UplodeDate);
-                        cmd.Parameters.Add(FileName);
-                        cmd.Parameters.Add(UserId);
-                        cmd.Parameters.Add(comomid);
-
-                        sqlConnection.Open();
-                        cmd.ExecuteNonQuery();
-                        sqlConnection.Close();
+                        StoreDB(file_name, commonid);
                     }
                     catch (Exception e)
                     {
