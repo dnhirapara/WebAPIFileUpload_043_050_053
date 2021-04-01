@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Build the Docker image
-        run: docker build . --file FileUpload/CustomDockerfile --tag ide:$(date +%s)
+        run: docker build . --file FileUpload/Dockerfile --tag ide:$(date +%s)
 
       - name: Login to Heroku Container registry
         env: 
