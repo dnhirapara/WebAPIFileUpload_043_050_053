@@ -61,28 +61,13 @@ namespace FileUpload.Controllers
             using (SqlConnection sqlConnection = new SqlConnection(connectionString))
             {
                 sqlConnection.Open();
-                Int32 userid = 1;
                 SqlCommand fileCmd = new SqlCommand();
-                //using (SqlCommand userCmd = new SqlCommand())
-                //{
-                //    userCmd.Connection = sqlConnection;
-                //    userCmd.CommandText = "INSERT INTO UserDetail (username,email,password)VALUES(@username,@email,@password)";
-                //    userCmd.Parameters.AddWithValue("username", "guest");
-                //    userCmd.Parameters.AddWithValue("email", _email);
-                //    userCmd.Parameters.AddWithValue("password", "guest");
-                //    //SqlParameter username = new SqlParameter("@username", "guest");
-                //    //SqlParameter email = new SqlParameter("@email", _email);
-                //    //SqlParameter password = new SqlParameter("@password", "guest");
-                //    userid = Convert.ToInt32(userCmd.ExecuteScalar());
-                //    logger.Info(userid);
-                //}
-
                 fileCmd.Connection = sqlConnection;
                 fileCmd.CommandText = "INSERT INTO FileDetail (UplodeDate,FileName,UserId,ComonID)VALUES(@UplodeDate,@FileName,@UserId,@ComonID) ";
                 SqlParameter UplodeDate = new SqlParameter("@UplodeDate", DateTime.Now);
-                SqlParameter FileName = new SqlParameter("@FileName", file_name.ToString());
-                SqlParameter UserId = new SqlParameter("@UserId", userid);
-                SqlParameter comomid = new SqlParameter("@ComonID", commonid.ToString());
+                SqlParameter FileName = new SqlParameter("@FileName", file_name);
+                SqlParameter UserId = new SqlParameter("@UserId", 1);
+                SqlParameter comomid = new SqlParameter("@ComonID", commonid);
                 fileCmd.Parameters.Add(UplodeDate);
                 fileCmd.Parameters.Add(FileName);
                 fileCmd.Parameters.Add(UserId);
@@ -180,15 +165,14 @@ namespace FileUpload.Controllers
                         originalFileName = Path.Combine(fileuploadPath, (file.Headers.ContentDisposition.FileName).Trim(new Char[] { '"' }));
                         logger.Debug(uploadingFileName + " " + originalFileName);
                         File.Move(uploadingFileName, originalFileName);
-                    }
-                    string file_name = originalFileName;
-                    try
-                    {
-                        StoreDB(file_name, commonid, userEmail);
-                    }
-                    catch (Exception e)
-                    {
-                        logger.Info(e);
+                        try
+                        {
+                            StoreDB(originalFileName.ToString(), commonid, userEmail);
+                        }
+                        catch (Exception e)
+                        {
+                            logger.Info(e);
+                        }
                     }
                     //string body = $"Please goto these link to download your files. {prefixURL + "/api/FileUpload/?key=" + commonid}";
                     string body = $"Please goto these link to download your files. {prefixURL + commonid}";
